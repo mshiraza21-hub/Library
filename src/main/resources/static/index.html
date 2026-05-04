@@ -337,10 +337,45 @@
     .footer span { color: var(--accent); font-weight: 500; }
 
     /* Mobile */
-    @media (max-width: 500px) {
-      .form-grid { grid-template-columns: 1fr; }
-      .stats { flex-direction: column; }
+    @media (max-width: 600px) {
+      body { padding: 16px 12px; }
+
       .header h1 { font-size: 26px; }
+      .header p  { font-size: 13px; }
+
+      .stats { flex-direction: row; gap: 8px; }
+      .stat-card { padding: 12px 8px; }
+      .stat-card .num { font-size: 22px; }
+      .stat-card .label { font-size: 10px; }
+
+      .search-row { flex-direction: column; gap: 8px; }
+      .search-row input { width: 100%; }
+      .search-row .btn { width: 100%; }
+
+      .add-form { padding: 16px; }
+      .form-grid { grid-template-columns: 1fr; gap: 10px; }
+
+      .book-card {
+        padding: 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .book-title { font-size: 14px; }
+      .book-meta  { font-size: 11px; }
+
+      .book-badge { font-size: 10px; }
+
+      .btn-danger { padding: 6px 10px; font-size: 11px; }
+
+      .toast {
+        bottom: 12px;
+        right: 12px;
+        left: 12px;
+        text-align: center;
+      }
+
+      .footer { font-size: 10px; margin-top: 20px; }
     }
   </style>
 </head>
@@ -350,7 +385,7 @@
 
   <!-- Header -->
   <div class="header">
-    <h1> Library Management</h1>
+    <h1>📚 Library Management</h1>
     <p>Manage your book collection easily</p>
   </div>
 
@@ -370,6 +405,18 @@
   <div class="search-row">
     <input type="text" id="searchInput" placeholder="🔍  Search by title or author..." oninput="searchBooks()"/>
     <button class="btn btn-primary" onclick="loadBooks()">All Books</button>
+  </div>
+
+  <!-- CSV Upload -->
+  <div class="add-form" style="margin-bottom: 16px;">
+    <h2>📂 Bulk Upload via CSV</h2>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:16px;">Upload a CSV file with columns: <strong>title, author, genre, year</strong></p>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <input type="file" id="csvFile" accept=".csv" style="flex:1; padding:10px; background:var(--card); border:1px solid var(--border); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--text); cursor:pointer;"/>
+      <button class="btn btn-primary" onclick="uploadCSV()">Upload CSV</button>
+      <button class="btn" style="background:var(--card); border:1px solid var(--border); color:var(--accent);" onclick="downloadSample()">Download Sample</button>
+    </div>
+    <div id="csvStatus" style="margin-top:10px; font-size:13px; color:var(--muted);"></div>
   </div>
 
   <!-- Add Book Form -->
@@ -547,6 +594,93 @@
     toast.textContent = msg;
     toast.className   = `toast ${type} show`;
     setTimeout(() => toast.className = 'toast', 3000);
+  }
+
+  // ── CSV Upload ──────────────────────────────────────────
+  async function uploadCSV() {
+    const file = document.getElementById('csvFile').files[0];
+    const status = document.getElementById('csvStatus');
+
+    if (!file) {
+      status.textContent = '⚠️ Please select a CSV file first';
+      status.style.color = 'var(--accent2)';
+      return;
+    }
+
+    const text = await file.text();
+    const lines = text.trim().split('\n');
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+
+    // Validate headers
+    const required = ['title', 'author', 'genre', 'year'];
+    const missing = required.filter(r => !headers.includes(r));
+    if (missing.length > 0) {
+      status.textContent = `⚠️ Missing columns: ${missing.join(', ')}`;
+      status.style.color = 'var(--accent2)';
+      return;
+    }
+
+    // Parse rows
+    const books = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values.length < 4) continue;
+      books.push({
+        title:  values[headers.indexOf('title')],
+        author: values[headers.indexOf('author')],
+        genre:  values[headers.indexOf('genre')],
+        year:   parseInt(values[headers.indexOf('year')]),
+        available: true
+      });
+    }
+
+    if (books.length === 0) {
+      status.textContent = '⚠️ No valid books found in CSV';
+      status.style.color = 'var(--accent2)';
+      return;
+    }
+
+    status.textContent = `⏳ Uploading ${books.length} books...`;
+    status.style.color = 'var(--muted)';
+
+    try {
+      const res = await fetch('/api/books/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(books)
+      });
+
+      if (res.ok) {
+        status.textContent = `✅ Successfully added ${books.length} books!`;
+        status.style.color = 'var(--green)';
+        document.getElementById('csvFile').value = '';
+        loadBooks();
+      } else {
+        status.textContent = '❌ Upload failed. Try again.';
+        status.style.color = 'var(--accent2)';
+      }
+    } catch {
+      status.textContent = '❌ Could not connect to server';
+      status.style.color = 'var(--accent2)';
+    }
+  }
+
+  // ── Download sample CSV ─────────────────────────────────
+  function downloadSample() {
+    const csv = `title,author,genre,year
+The Great Gatsby,F. Scott Fitzgerald,Fiction,1925
+To Kill a Mockingbird,Harper Lee,Fiction,1960
+1984,George Orwell,Fiction,1949
+A Brief History of Time,Stephen Hawking,Science,1988
+Clean Code,Robert C. Martin,Technology,2008`;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'sample-books.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // Load on start
