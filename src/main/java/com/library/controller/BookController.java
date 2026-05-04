@@ -32,6 +32,14 @@ public class BookController {
         return bookRepository.save(book);
     }
 
+    // POST add multiple books at once (bulk)
+    @PostMapping("/bulk")
+    public ResponseEntity<String> addBulkBooks(@RequestBody List<Book> books) {
+        books.forEach(book -> book.setAvailable(true));
+        bookRepository.saveAll(books);
+        return ResponseEntity.ok("Added " + books.size() + " books successfully");
+    }
+
     // DELETE a book by id
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteBook(@PathVariable Long id) {
