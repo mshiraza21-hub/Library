@@ -1,13 +1,11 @@
-server.port=${PORT:8080}
-spring.application.name=library
+package com.library;
 
-# MySQL Database
-spring.datasource.url=${DATABASE_URL}
-spring.datasource.username=${DATABASE_USERNAME}
-spring.datasource.password=${DATABASE_PASSWORD}
-spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-# Auto create/update tables
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+@SpringBootApplication
+public class LibraryApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(LibraryApplication.class, args);
+    }
+}
